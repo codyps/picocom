@@ -34,21 +34,59 @@
 #include <errno.h>
 #include <unistd.h>
 #ifdef __linux__
-#include <termio.h>
+#include <asm/ioctls.h>
+#include <asm/termios.h>
 #else
 #include <termios.h>
 #endif /* of __linux__ */
 
 #include "term.h"
 
+/* XXX: We can't include sys/ioctl.h as that causes a redefinition of 'struct
+ * winsize' **/
+/* Perform the I/O control operation specified by REQUEST on FD.
+   One argument may follow; its presence and type depend on REQUEST.
+   Return value depends on REQUEST.  Usually -1 indicates error.  */
+extern int ioctl (int __fd, unsigned long int __request, ...) __THROW;
+
+/* XXX: Unable to include termios.h because 'struct termios' is redefined in
+ * libc. */
+static int tcflush(int fd, int queue_selector)
+{
+	return 0;
+}
+
+static void cfmakeraw(struct termios2 *termios_p)
+{
+	termios_p->c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
+			| INLCR | IGNCR | ICRNL | IXON);
+	termios_p->c_oflag &= ~OPOST;
+	termios_p->c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+	termios_p->c_cflag &= ~(CSIZE | PARENB);
+	termios_p->c_cflag |= CS8;
+}
+
+static int tcsendbreak(int fd, int duration)
+{
+	return ioctl(fd, TCSBRKP, duration);
+}
+
+static int tcdrain(int fd)
+{
+	/* from tty_ioctl(4):
+	 * >> SVr4,  UnixWare,  Solaris,  Linux treat tcsendbreak(fd,arg) with nonzero arg like tcdrain(fd)
+	 */
+	return ioctl(fd, TCSBRK, 1);
+}
+
 /***************************************************************************/
 
 static struct term_s {
 	int init;
 	int fd[MAX_TERMS];
-	struct termios origtermios[MAX_TERMS];
-	struct termios currtermios[MAX_TERMS];
-	struct termios nexttermios[MAX_TERMS];
+	struct termios2 origtermios[MAX_TERMS];
+	struct termios2 currtermios[MAX_TERMS];
+	struct termios2 nexttermios[MAX_TERMS];
 } term;
 
 /***************************************************************************/
@@ -204,7 +242,7 @@ term_exitfunc (void)
 			do { /* dummy */
 				r = tcflush(term.fd[i], TCIOFLUSH);
 				if ( r < 0 ) break;
-				r = tcsetattr(term.fd[i], TCSAFLUSH, &term.origtermios[i]);
+				r = ioctl(term.fd[i], TCSETSF2, &term.origtermios[i]);
 				if ( r < 0 ) break;
 			} while (0);
 			if ( r < 0 ) {
@@ -238,7 +276,7 @@ term_lib_init (void)
 				do {
 					r = tcflush(term.fd[i], TCIOFLUSH);
 					if ( r < 0 ) break;
-					r = tcsetattr(term.fd[i], TCSAFLUSH, &term.origtermios[i]);
+					r = ioctl(term.fd[i], TCSETSF2, &term.origtermios[i]);
 					if ( r < 0 ) break;
 				} while (0);
 				if ( r < 0 ) {
@@ -297,7 +335,7 @@ term_add (int fd)
 			break;
 		}
 
-		r = tcgetattr(fd, &term.origtermios[i]);
+		r = ioctl(fd, TCGETS2, &term.origtermios[i]);
 		if ( r < 0 ) {
 			term_errno = TERM_EGETATTR;
 			rval = -1;
@@ -335,7 +373,7 @@ term_remove(int fd)
 				rval = -1;
 				break;
 			}
-			r = tcsetattr(term.fd[i], TCSAFLUSH, &term.origtermios[i]);
+			r = ioctl(term.fd[i], TCSETS2, &term.origtermios[i]);
 			if ( r < 0 ) {
 				term_errno = TERM_ESETATTR;
 				rval = -1;
@@ -388,7 +426,7 @@ term_replace (int oldfd, int newfd)
 			break;
 		}
 
-		r = tcsetattr(newfd, TCSAFLUSH, &term.currtermios[i]);
+		r = ioctl(newfd, TCSETSF2, &term.currtermios[i]);
 		if ( r < 0 ) {
 			term_errno = TERM_ESETATTR;
 			rval = -1;
@@ -425,7 +463,7 @@ term_reset (int fd)
 			rval = -1;
 			break;
 		}
-		r = tcsetattr(term.fd[i], TCSAFLUSH, &term.origtermios[i]);
+		r = ioctl(term.fd[i], TCSETSF2, &term.origtermios[i]);
 		if ( r < 0 ) {
 			term_errno = TERM_ESETATTR;
 			rval = -1;
@@ -480,7 +518,7 @@ term_refresh (int fd)
 			break;
 		}
 
-		r = tcgetattr(fd, &term.currtermios[i]);
+		r = ioctl(fd, TCGETS2, &term.currtermios[i]);
 		if ( r < 0 ) {
 			term_errno = TERM_EGETATTR;
 			rval = -1;
@@ -509,7 +547,7 @@ term_apply (int fd)
 			break;
 		}
 		
-		r = tcsetattr(term.fd[i], TCSAFLUSH, &term.nexttermios[i]);
+		r = ioctl(term.fd[i], TCSETSF2 , &term.nexttermios[i]);
 		if ( r < 0 ) {
 			term_errno = TERM_ESETATTR;
 			rval = -1;
@@ -554,11 +592,10 @@ term_set_raw (int fd)
 /***************************************************************************/
 
 int
-term_set_baudrate (int fd, int baudrate)
+term_set_baudrate (int fd, speed_t baud_rate)
 {
-	int rval, r, i;
-	speed_t spd;
-	struct termios tio;
+	int rval, i;
+	struct termios2 tio;
 
 	rval = 0;
 
@@ -572,92 +609,14 @@ term_set_baudrate (int fd, int baudrate)
 
 		tio = term.nexttermios[i];
 
-		switch (baudrate) {
-		case 0:
-			spd = B0;
-			break;
-		case 50:
-			spd = B50;
-			break;
-		case 75:
-			spd = B75;
-			break;
-		case 110:
-			spd = B110;
-			break;
-		case 134:
-			spd = B134;
-			break;
-		case 150:
-			spd = B150;
-			break;
-		case 200:
-			spd = B200;
-			break;
-		case 300:
-			spd = B300;
-			break;
-		case 600:
-			spd = B600;
-			break;
-		case 1200:
-			spd = B1200;
-			break;
-		case 1800:
-			spd = B1800;
-			break;
-		case 2400:
-			spd = B2400;
-			break;
-		case 4800:
-			spd = B4800;
-			break;
-		case 9600:
-			spd = B9600;
-			break;
-		case 19200:
-			spd = B19200;
-			break;
-		case 38400:
-			spd = B38400;
-			break;
-		case 57600:
-			spd = B57600;
-			break;
-		case 115200:
-			spd = B115200;
-			break;
-#ifdef HIGH_BAUD
-		case 230400:
-			spd = B230400;
-			break;
-		case 460800:
-			spd = B460800;
-			break;
-		case 921600:
-			spd = B921600;
-			break;
-#endif
-		default:
-			term_errno = TERM_EBAUD;
-			rval = -1;
-			break;
-		}
-		if ( rval < 0 ) break;
+		/* drivers/tty/tty_ioctl.c :: tty_termios_baud_rate() */
+		tio.c_cflag = (tio.c_cflag & ~CBAUD) | BOTHER;
+		tio.c_ospeed = baud_rate;
 
-		r = cfsetospeed(&tio, spd);
-		if ( r < 0 ) {
-			term_errno = TERM_ESETOSPEED;
-			rval = -1;
-			break;
-		}
-			
-		r = cfsetispeed(&tio, spd);
-		if ( r < 0 ) {
-			term_errno = TERM_ESETISPEED;
-			rval = -1;
-			break;
-		}
+		/* drivers/tty/tty_ioctl.c :: tty_termios_input_baud_rate() */
+		/* If CIBAUD == B0, use output baud rate. Setting tio.c_ispeed is
+		 * unneeded */
+		tio.c_cflag = (tio.c_cflag & ~(CBAUD << IBSHIFT)) | (B0 << IBSHIFT);
 
 		term.nexttermios[i] = tio;
 
@@ -672,7 +631,7 @@ int
 term_set_parity (int fd, enum parity_e parity) 
 {
 	int rval, i;
-	struct termios *tiop;
+	struct termios2 *tiop;
 
 	rval = 0;
 
@@ -715,7 +674,7 @@ int
 term_set_databits (int fd, int databits)
 {
 	int rval, i;
-	struct termios *tiop;
+	struct termios2 *tiop;
 
 	rval = 0;
 
@@ -760,7 +719,7 @@ int
 term_set_flowcntrl (int fd, enum flowcntrl_e flowcntl)
 {
 	int rval, i;
-	struct termios *tiop;
+	struct termios2 *tiop;
 
 	rval = 0;
 
@@ -805,7 +764,7 @@ int
 term_set_local(int fd, int local)
 {
 	int rval, i;
-	struct termios *tiop;
+	struct termios2 *tiop;
 
 	rval = 0;
 
@@ -835,7 +794,7 @@ int
 term_set_hupcl (int fd, int on)
 {
 	int rval, i;
-	struct termios *tiop;
+	struct termios2 *tiop;
 
 	rval = 0;
 
@@ -868,7 +827,7 @@ term_set(int fd,
 		 int local, int hup_close)
 {
 	int rval, r, i, ni;
-	struct termios tio;
+	struct termios2 tio;
 
 	rval = 0;
 
@@ -967,7 +926,7 @@ term_pulse_dtr (int fd)
 		}
 #else
 		{
-			struct termios tio, tioold;
+			struct termios2 tio, tioold;
 
 			r = tcgetattr(fd, &tio);
 			if ( r < 0 ) {
@@ -1077,7 +1036,7 @@ term_lower_dtr(int fd)
 		}
 #else
 		{
-			struct termios tio;
+			struct termios2 tio;
 
 			r = tcgetattr(fd, &tio);
 			if ( r < 0 ) {

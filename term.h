@@ -100,6 +100,7 @@
  */
 #define MAX_TERMS 16
 
+#include <asm/termbits.h> /* speed_t */
 /*
  * E term_errno_e
  *
@@ -365,7 +366,7 @@ int term_set_raw (int fd);
  * failure only to indicate invalid arguments, so the return value can
  * be safely ignored.
  */
-int term_set_baudrate (int fd, int baudrate);
+int term_set_baudrate (int fd, speed_t baudrate);
 
 /* F term_set_parity
  *
