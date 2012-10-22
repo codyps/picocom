@@ -20,7 +20,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA 
+ * USA
  */
 
 #include <stdlib.h>
@@ -50,11 +50,11 @@
 #define KEY_PULSE   '\x10' /* C-p: pulse DTR */
 #define KEY_TOGGLE  '\x14' /* C-t: toggle DTR */
 #define KEY_BAUD_UP '\x15' /* C-u: increase baudrate (up) */
-#define KEY_BAUD_DN '\x04' /* C-d: decrase baudrate (down) */ 
-#define KEY_FLOW    '\x06' /* C-f: change flowcntrl mode */ 
-#define KEY_PARITY  '\x19' /* C-y: change parity mode */ 
-#define KEY_BITS    '\x02' /* C-b: change number of databits */ 
-#define KEY_LECHO   '\x03' /* C-c: toggle local echo */ 
+#define KEY_BAUD_DN '\x04' /* C-d: decrase baudrate (down) */
+#define KEY_FLOW    '\x06' /* C-f: change flowcntrl mode */
+#define KEY_PARITY  '\x19' /* C-y: change parity mode */
+#define KEY_BITS    '\x02' /* C-b: change number of databits */
+#define KEY_LECHO   '\x03' /* C-c: toggle local echo */
 #define KEY_STATUS  '\x16' /* C-v: show program option */
 #define KEY_SEND    '\x13' /* C-s: send file */
 #define KEY_RECEIVE '\x12' /* C-r: receive file */
@@ -86,16 +86,16 @@ struct map_names_s {
 	char *name;
 	int flag;
 } map_names[] = {
-	{ "crlf", M_CRLF },
+	{ "crlf",   M_CRLF },
 	{ "crcrlf", M_CRCRLF },
-	{ "igncr", M_IGNCR },
-    { "lfcr", M_LFCR },
+	{ "igncr",  M_IGNCR },
+	{ "lfcr",   M_LFCR },
 	{ "lfcrlf", M_LFCRLF },
-	{ "ignlf", M_IGNLF },
-	{ "delbs", M_DELBS },
-	{ "bsdel", M_BSDEL },
+	{ "ignlf",  M_IGNLF },
+	{ "delbs",  M_DELBS },
+	{ "bsdel",  M_BSDEL },
 	/* Sentinel */
-	{ NULL, 0 } 
+	{ NULL, 0 }
 };
 
 int
@@ -221,12 +221,12 @@ uucp_lock(void)
 
 	fd = open(lockname, O_RDONLY);
 	if ( fd >= 0 ) {
-		r = read(fd, buf, sizeof(buf)); 
+		r = read(fd, buf, sizeof(buf));
 		close(fd);
 		/* if r == 4, lock file is binary (old-style) */
 		pid = (r == 4) ? *(int *)buf : strtol(buf, NULL, 10);
-		if ( pid > 0 
-			 && kill((pid_t)pid, 0) < 0 
+		if ( pid > 0
+			 && kill((pid_t)pid, 0) < 0
 			 && errno == ESRCH ) {
 			/* stale lock file */
 			printf("Removing stale lock: %s\n", lockname);
@@ -264,7 +264,7 @@ uucp_unlock(void)
 ssize_t
 writen_ni(int fd, const void *buff, size_t n)
 {
-	size_t nl; 
+	size_t nl;
 	ssize_t nw;
 	const char *p;
 
@@ -278,7 +278,7 @@ writen_ni(int fd, const void *buff, size_t n)
 		nl -= nw;
 		p += nw;
 	}
-	
+
 	return n - nl;
 }
 
@@ -288,12 +288,12 @@ fd_printf (int fd, const char *format, ...)
 	char buf[256];
 	va_list args;
 	int len;
-	
+
 	va_start(args, format);
 	len = vsnprintf(buf, sizeof(buf), format, args);
 	buf[sizeof(buf) - 1] = '\0';
 	va_end(args);
-	
+
 	return writen_ni(fd, buf, len);
 }
 
@@ -306,12 +306,12 @@ fatal (const char *format, ...)
 
 	term_reset(STO);
 	term_reset(STI);
-	
+
 	va_start(args, format);
 	len = vsnprintf(buf, sizeof(buf), format, args);
 	buf[sizeof(buf) - 1] = '\0';
 	va_end(args);
-	
+
 	s = "\r\nFATAL: ";
 	writen_ni(STO, s, strlen(s));
 	writen_ni(STO, buf, len);
@@ -324,7 +324,7 @@ fatal (const char *format, ...)
 #ifdef UUCP_LOCK_DIR
 	uucp_unlock();
 #endif
-	
+
 	exit(EXIT_FAILURE);
 }
 
@@ -336,7 +336,7 @@ fd_readline (int fdi, int fdo, char *b, int bsz)
 	int r;
 	unsigned char c;
 	unsigned char *bp, *bpe;
-	
+
 	bp = (unsigned char *)b;
 	bpe = (unsigned char *)b + bsz - 1;
 
@@ -346,7 +346,7 @@ fd_readline (int fdi, int fdo, char *b, int bsz)
 
 		switch (c) {
 		case '\b':
-			if ( bp > (unsigned char *)b ) { 
+			if ( bp > (unsigned char *)b ) {
 				bp--;
 				cput(fdo, c); cput(fdo, ' '); cput(fdo, c);
 			} else {
@@ -428,16 +428,16 @@ do_map (char *b, int map, char c)
 	return n;
 }
 
-void 
+void
 map_and_write (int fd, int map, char c)
 {
 	char b[M_MAXMAP];
 	int n;
-		
+
 	n = do_map(b, map, c);
 	if ( n )
 		if ( writen_ni(fd, b, n) < n )
-			fatal("write to stdout failed: %s", strerror(errno));		
+			fatal("write to stdout failed: %s", strerror(errno));
 }
 
 /**********************************************************************/
@@ -553,12 +553,12 @@ void
 establish_child_signal_handlers (void)
 {
 	struct sigaction empty_action;
-	
+
 	/* Set up the structure to specify the "empty" action. */
-    empty_action.sa_handler = child_empty_handler;
+	empty_action.sa_handler = child_empty_handler;
 	sigemptyset (&empty_action.sa_mask);
 	empty_action.sa_flags = 0;
-	
+
 	sigaction (SIGINT, &empty_action, NULL);
 	sigaction (SIGTERM, &empty_action, NULL);
 }
@@ -625,7 +625,7 @@ run_cmd(int fd, ...)
 			const char *s;
 			int n;
 			va_list vls;
-			
+
 			c = cmd;
 			ce = cmd + sizeof(cmd) - 1;
 			va_start(vls, fd);
@@ -711,12 +711,12 @@ loop(void)
 					state = ST_TRANSPARENT;
 					/* pass the escape character down */
 					if (tty_q.len + M_MAXMAP <= TTY_Q_SZ) {
-						n = do_map((char *)tty_q.buff + tty_q.len, 
+						n = do_map((char *)tty_q.buff + tty_q.len,
 								   opts.omap, c);
 						tty_q.len += n;
-						if ( opts.lecho ) 
+						if (opts.lecho)
 							map_and_write(STO, opts.emap, c);
-					} else 
+					} else
 						fd_printf(STO, "\x07");
 					break;
 				}
@@ -749,7 +749,7 @@ loop(void)
 					else
 						r = term_raise_dtr(tty_fd);
 					if ( r >= 0 ) dtr_up = ! dtr_up;
-					fd_printf(STO, "\r\n*** DTR: %s ***\r\n", 
+					fd_printf(STO, "\r\n*** DTR: %s ***\r\n",
 							  dtr_up ? "up" : "down");
 					break;
 				case KEY_BAUD_UP:
@@ -835,12 +835,12 @@ loop(void)
 					state = ST_COMMAND;
 				} else {
 					if (tty_q.len + M_MAXMAP <= TTY_Q_SZ) {
-						n = do_map((char *)tty_q.buff + tty_q.len, 
+						n = do_map((char *)tty_q.buff + tty_q.len,
 								   opts.omap, c);
 						tty_q.len += n;
-						if ( opts.lecho ) 
+						if (opts.lecho)
 							map_and_write(STO, opts.emap, c);
-					} else 
+					} else
 						fd_printf(STO, "\x07");
 				}
 				break;
@@ -904,22 +904,22 @@ establish_signal_handlers (void)
 
         /* Set up the structure to specify the exit action. */
         exit_action.sa_handler = deadly_handler;
-        sigemptyset (&exit_action.sa_mask);
+        sigemptyset(&exit_action.sa_mask);
         exit_action.sa_flags = 0;
 
         /* Set up the structure to specify the ignore action. */
         ign_action.sa_handler = SIG_IGN;
-        sigemptyset (&ign_action.sa_mask);
+        sigemptyset(&ign_action.sa_mask);
         ign_action.sa_flags = 0;
 
-        sigaction (SIGTERM, &exit_action, NULL);
+        sigaction(SIGTERM, &exit_action, NULL);
 
-        sigaction (SIGINT, &ign_action, NULL); 
-        sigaction (SIGHUP, &ign_action, NULL);
-        sigaction (SIGALRM, &ign_action, NULL);
-        sigaction (SIGUSR1, &ign_action, NULL);
-        sigaction (SIGUSR2, &ign_action, NULL);
-        sigaction (SIGPIPE, &ign_action, NULL);
+        sigaction(SIGINT, &ign_action, NULL);
+        sigaction(SIGHUP, &ign_action, NULL);
+        sigaction(SIGALRM, &ign_action, NULL);
+        sigaction(SIGUSR1, &ign_action, NULL);
+        sigaction(SIGUSR2, &ign_action, NULL);
+        sigaction(SIGPIPE, &ign_action, NULL);
 }
 
 /**********************************************************************/
@@ -972,9 +972,9 @@ parse_args(int argc, char *argv[])
 	{
 		{"receive-cmd", required_argument, 0, 'v'},
 		{"send-cmd", required_argument, 0, 's'},
-        {"imap", required_argument, 0, 'I' },
-        {"omap", required_argument, 0, 'O' },
-        {"emap", required_argument, 0, 'E' },
+		{"imap", required_argument, 0, 'I' },
+		{"omap", required_argument, 0, 'O' },
+		{"emap", required_argument, 0, 'E' },
 		{"escape", required_argument, 0, 'e'},
 		{"echo", no_argument, 0, 'c'},
 		{"noinit", no_argument, 0, 'i'},
@@ -1188,16 +1188,16 @@ main(int argc, char *argv[])
 					 !opts.noreset); /* hup-on-close. */
 	}
 	if ( r < 0 )
-		fatal("failed to add device %s: %s", 
+		fatal("failed to add device %s: %s",
 			  opts.port, term_strerror(term_errno, errno));
 	r = term_apply(tty_fd);
 	if ( r < 0 )
-		fatal("failed to config device %s: %s", 
+		fatal("failed to config device %s: %s",
 			  opts.port, term_strerror(term_errno, errno));
-	
+
 	r = term_add(STI);
 	if ( r < 0 )
-		fatal("failed to add I/O device: %s", 
+		fatal("failed to add I/O device: %s",
 			  term_strerror(term_errno, errno));
 	term_set_raw(STI);
 	r = term_apply(STI);
