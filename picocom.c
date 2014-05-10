@@ -155,7 +155,7 @@ struct {
 	int emap;
 } opts = {
 	.port = "",
-	.baud = 9600,
+	.baud = 115200,
 	.flow = FC_NONE,
 	.flow_str = "none",
 	.parity = P_NONE,
@@ -168,8 +168,8 @@ struct {
 	.nolock = 0,
 #endif
 	.escape = '\x01',
-	.send_cmd = "sz -vv",
-	.receive_cmd = "rz -vv",
+	.send_cmd = "sb -vv",
+	.receive_cmd = "rb -vv",
 	.imap = M_I_DFL,
 	.omap = M_O_DFL,
 	.emap = M_E_DFL
