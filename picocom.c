@@ -1214,10 +1214,6 @@ main(int argc, char *argv[])
 		term_erase(tty_fd);
 	}
 
-	fd_printf(STO, "Thanks for using picocom\r\n");
-	/* wait a bit for output to drain */
-	sleep(1);
-
 #ifdef UUCP_LOCK_DIR
 	uucp_unlock();
 #endif
